@@ -65,8 +65,11 @@ tr.hidden { display: none; }
     <option value="">全部车种</option><option value="G">G-高铁</option><option value="D">D-动车</option><option value="K">K-快速</option><option value="T">T-特快</option><option value="Z">Z-直达</option>
   </select>
   <input id="filter-cost" placeholder="费用 ≤" type="number" oninput="applyFilters()" style="width:100px">
-  <select id="filter-seat" onchange="applyFilters()">
-    <option value="">全部席位</option><option value="硬卧">硬卧</option><option value="软卧">软卧</option><option value="二等座">二等座</option><option value="一等座">一等座</option><option value="商务座">商务座</option><option value="硬座">硬座</option><option value="无座">无座</option>
+  <select id="filter-seat1" onchange="applyFilters()">
+    <option value="">车次1席位</option><option value="硬卧">硬卧</option><option value="软卧">软卧</option><option value="二等座">二等座</option><option value="一等座">一等座</option><option value="商务座">商务座</option><option value="硬座">硬座</option><option value="无座">无座</option>
+  </select>
+  <select id="filter-seat2" onchange="applyFilters()">
+    <option value="">车次2席位</option><option value="硬卧">硬卧</option><option value="软卧">软卧</option><option value="二等座">二等座</option><option value="一等座">一等座</option><option value="商务座">商务座</option><option value="硬座">硬座</option><option value="无座">无座</option>
   </select>
   <button onclick="resetFilters()" style="padding:6px 12px;border:1px solid var(--border);border-radius:6px;background:var(--card);cursor:pointer">重置</button>
 </div>
@@ -134,7 +137,8 @@ function renderRow(s) {
         data-type="${tKey}" data-train="${s.leg1.train_code[0]}${s.leg2.train_code[0]}"
         data-cost="${c1 + c2}" data-gap="${g}" data-total="${td}"
         data-train1="${s.leg1.train_code}" data-train2="${s.leg2.train_code}"
-        data-seats="${Object.keys(s.leg1.seats||{}).join(',')},${Object.keys(s.leg2.seats||{}).join(',')}">
+        data-seats1="${Object.keys(s.leg1.seats||{}).join(',')}"
+        data-seats2="${Object.keys(s.leg2.seats||{}).join(',')}">
       <td class="time">${s.leg1.depart}</td>
       <td class="time">${s.leg2.arrive}</td>
       <td>${hub}</td>
@@ -161,7 +165,8 @@ function applyFilters() {
   const fType = document.getElementById('filter-type').value;
   const fTrain = document.getElementById('filter-train').value;
   const fCost = parseInt(document.getElementById('filter-cost').value) || 0;
-  const fSeat = document.getElementById('filter-seat').value;
+  const fSeat1 = document.getElementById('filter-seat1').value;
+  const fSeat2 = document.getElementById('filter-seat2').value;
   const rows = document.querySelectorAll('#tbody tr');
   let visible = 0;
   rows.forEach(row => {
@@ -172,7 +177,8 @@ function applyFilters() {
     if (fType && row.dataset.type !== fType) show = false;
     if (fTrain && !row.dataset.train.includes(fTrain)) show = false;
     if (fCost && parseInt(row.dataset.cost) > fCost) show = false;
-    if (fSeat && !row.dataset.seats.includes(fSeat)) show = false;
+    if (fSeat1 && !row.dataset.seats1.includes(fSeat1)) show = false;
+    if (fSeat2 && !row.dataset.seats2.includes(fSeat2)) show = false;
     row.classList.toggle('hidden', !show);
     if (show) visible++;
   });
@@ -182,7 +188,8 @@ function applyFilters() {
 function resetFilters() {
   document.querySelectorAll('.filters input, .filters select').forEach(el => el.value = '');
   document.getElementById('filter-hub').value = '';
-  document.getElementById('filter-seat').value = '';
+  document.getElementById('filter-seat1').value = '';
+  document.getElementById('filter-seat2').value = '';
   applyFilters();
 }
 
