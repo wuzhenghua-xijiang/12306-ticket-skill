@@ -57,6 +57,8 @@ tr.hidden { display: none; }
 <div class="filters">
   <input id="filter-from" placeholder="出发时间 ≥" type="text" oninput="applyFilters()">
   <input id="filter-to" placeholder="到达时间 ≤" type="text" oninput="applyFilters()">
+  <select id="filter-from-stn" onchange="applyFilters()"><option value="">起点站</option></select>
+  <select id="filter-to-stn" onchange="applyFilters()"><option value="">终点站</option></select>
   <select id="filter-hub" onchange="applyFilters()"><option value="">全部中转站</option></select>
   <select id="filter-type" onchange="applyFilters()">
     <option value="">全部换乘类型</option><option value="same">站内</option><option value="city">同城</option><option value="diff">异站</option>
@@ -138,7 +140,8 @@ function renderRow(s) {
         data-cost="${c1 + c2}" data-gap="${g}" data-total="${td}"
         data-train1="${s.leg1.train_code}" data-train2="${s.leg2.train_code}"
         data-seats1="${Object.keys(s.leg1.seats||{}).join(',')}"
-        data-seats2="${Object.keys(s.leg2.seats||{}).join(',')}">
+        data-seats2="${Object.keys(s.leg2.seats||{}).join(',')}"
+        data-from-stn="${s.leg1.from}" data-to-stn="${s.leg2.to}">
       <td class="time">${s.leg1.depart}</td>
       <td class="time">${s.leg2.arrive}</td>
       <td>${hub}</td>
@@ -162,6 +165,8 @@ function applyFilters() {
   const fFrom = document.getElementById('filter-from').value;
   const fTo = document.getElementById('filter-to').value;
   const fHub = document.getElementById('filter-hub').value;
+  const fFromStn = document.getElementById('filter-from-stn').value;
+  const fToStn = document.getElementById('filter-to-stn').value;
   const fType = document.getElementById('filter-type').value;
   const fTrain = document.getElementById('filter-train').value;
   const fCost = parseInt(document.getElementById('filter-cost').value) || 0;
@@ -174,6 +179,8 @@ function applyFilters() {
     if (fFrom && row.dataset.depart < fFrom) show = false;
     if (fTo && row.dataset.arrive > fTo) show = false;
     if (fHub && row.dataset.hub !== fHub) show = false;
+    if (fFromStn && row.dataset.fromStn !== fFromStn) show = false;
+    if (fToStn && row.dataset.toStn !== fToStn) show = false;
     if (fType && row.dataset.type !== fType) show = false;
     if (fTrain && !row.dataset.train.includes(fTrain)) show = false;
     if (fCost && parseInt(row.dataset.cost) > fCost) show = false;
@@ -188,6 +195,8 @@ function applyFilters() {
 function resetFilters() {
   document.querySelectorAll('.filters input, .filters select').forEach(el => el.value = '');
   document.getElementById('filter-hub').value = '';
+  document.getElementById('filter-from-stn').value = '';
+  document.getElementById('filter-to-stn').value = '';
   document.getElementById('filter-seat1').value = '';
   document.getElementById('filter-seat2').value = '';
   applyFilters();
@@ -230,8 +239,14 @@ async function loadData(src) {
     const route = (json.from && json.to) ? `${json.from} → ${json.to}` : '12306 中转方案';
     document.getElementById('route-title').textContent = route;
     hubSet = new Set(data.map(s => s.transfer.replace(/[东南西北]$/, '')));
-    const sel = document.getElementById('filter-hub');
-    [...hubSet].sort().forEach(h => { const o = document.createElement('option'); o.value = h; o.textContent = h; sel.appendChild(o); });
+    const fromStnSet = new Set(data.map(s => s.leg1.from));
+    const toStnSet = new Set(data.map(s => s.leg2.to));
+    const selHub = document.getElementById('filter-hub');
+    const selFromStn = document.getElementById('filter-from-stn');
+    const selToStn = document.getElementById('filter-to-stn');
+    [...hubSet].sort().forEach(h => { const o = document.createElement('option'); o.value = h; o.textContent = h; selHub.appendChild(o); });
+    [...fromStnSet].sort().forEach(s => { const o = document.createElement('option'); o.value = s; o.textContent = s; selFromStn.appendChild(o); });
+    [...toStnSet].sort().forEach(s => { const o = document.createElement('option'); o.value = s; o.textContent = s; selToStn.appendChild(o); });
     renderTable();
     applyFilters();
     sort('total');
