@@ -5,10 +5,38 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # ─── 会话管理 ──────────────────────────────────────
 CTX = ssl.create_default_context()
-UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+
+# 多终端 UA 池 —— 并发时模拟不同浏览器/OS，降低触发限流概率
+_UA_POOL = [
+    # macOS Chrome
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+    # macOS Safari
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.2 Safari/605.1.15',
+    # Windows Chrome
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+    # Windows Edge
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0',
+    # Windows Firefox
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0',
+    # Linux Chrome
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+    # iPhone Safari
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 18_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.2 Mobile/15E148 Safari/604.1',
+    # Android Chrome
+    'Mozilla/5.0 (Linux; Android 14; Pixel 8 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.6778.135 Mobile Safari/537.36',
+]
+import random
+
+def _random_ua():
+    return random.choice(_UA_POOL)
+
+_ACCEPT_LANGS = ['zh-CN,zh;q=0.9,en;q=0.8', 'zh-CN,zh;q=0.9', 'zh-CN,zh;q=0.8,en-US;q=0.6']
+
+def _random_lang():
+    return random.choice(_ACCEPT_LANGS)
 
 class Session:
-    """线程安全: 每个线程持有独立Session实例"""
+    """线程安全: 每线程独立Session + 随机UA模拟不同终端"""
     def __init__(self):
         self.cj = http.cookiejar.CookieJar()
         self.opener = urllib.request.build_opener(
@@ -16,6 +44,8 @@ class Session:
             urllib.request.HTTPSHandler(context=CTX),
         )
         self.ready = False; self.api_type = None
+        self.ua = _random_ua()  # 每个Session随机一个UA，分散限流风险
+        self.lang = _random_lang()
 
     def init(self, force=False):
         if self.ready and not force: return
@@ -23,7 +53,7 @@ class Session:
         try:
             html = self.opener.open(urllib.request.Request(
                 'https://kyfw.12306.cn/otn/leftTicket/init',
-                headers={'User-Agent': UA, 'Accept': 'text/html,*/*', 'Accept-Language': 'zh-CN,zh;q=0.9'}
+                headers={'User-Agent': self.ua, 'Accept': 'text/html,*/*', 'Accept-Language': self.lang}
             ), timeout=12).read().decode('utf-8-sig')
             m = re.search(r"var CLeftTicketUrl = '([^']+)'", html)
             if m: self.api_type = m.group(1)
@@ -44,8 +74,8 @@ def _get(url, timeout=8, session=None):
     """GET with auto-retry. session=None 用全局单例，线程场景传入独立Session"""
     sess = session or _sess()
     sess.init()
-    headers = {'User-Agent': UA, 'Accept': 'application/json,*/*',
-        'Accept-Language': 'zh-CN,zh;q=0.9', 'Referer': 'https://kyfw.12306.cn/otn/leftTicket/init'}
+    headers = {'User-Agent': sess.ua, 'Accept': 'application/json,*/*',
+        'Accept-Language': sess.lang, 'Referer': 'https://kyfw.12306.cn/otn/leftTicket/init'}
     for attempt in range(3):
         try:
             raw = sess.opener.open(urllib.request.Request(url, headers=headers), timeout=timeout).read()
@@ -64,7 +94,7 @@ def load_stations(path=None):
     global STATIONS, STATION_REV, STATION_BY_PINYIN
     raw = open(path, encoding='utf-8').read() if path else urllib.request.urlopen(
         urllib.request.Request('https://kyfw.12306.cn/otn/resources/js/framework/station_name.js',
-        headers={'User-Agent': UA}), context=CTX, timeout=10).read().decode('utf-8')
+        headers={'User-Agent': _random_ua()}), context=CTX, timeout=10).read().decode('utf-8')
     raw = re.sub(r'^[^@]*', '', raw)
     for item in raw.split('@'):
         p = item.split('|')
@@ -130,6 +160,7 @@ def query_tickets(date, from_name, to_name, session=None):
     url = f'https://kyfw.12306.cn/otn/{sess.api_type}?{params}'
     for attempt in range(2):
         try:
+            time.sleep(random.randint(50, 200) / 1000.0)  # 50-200ms 随机抖动，错开并发峰值
             data = _get(url, session=sess)
             rows = data.get('data',{}).get('result',[]) or []
             return {'from':fn, 'to':tn, 'date':date, 'count':len(rows), 'trains':[parse_train(r) for r in rows]}
