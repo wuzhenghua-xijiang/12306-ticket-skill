@@ -47,7 +47,7 @@ tr.hidden { display: none; }
 </head>
 <body>
 <header>
-  <h1>🚄 12306 中转方案浏览器</h1>
+  <h1>🚄 <span id="route-title">12306 中转方案浏览器</span></h1>
   <div class="stats">
     <span id="stat-total">—</span>
     <span id="stat-hubs">—</span>
@@ -115,6 +115,8 @@ function getSeatSummary(t) {
     `<span class="seat">${k}${v === '有' ? '' : v + '张'}</span>`).join(' ');
 }
 
+function toMin(t) { const p = (t || '').split(':'); return parseInt(p[0]) * 60 + parseInt(p[1] || '0'); }
+
 function renderRow(s, i) {
   const [tLabel, tKey, tDetail] = transferInfo(s);
   const td = s.total_duration || 0, g = s.gap_min || 0;
@@ -122,8 +124,11 @@ function renderRow(s, i) {
   const c1 = Math.min(...Object.values(p1).filter(v => v > 0), 999);
   const c2 = Math.min(...Object.values(p2).filter(v => v > 0), 999);
   const hub = s.transfer.replace(/[东南西北]$/, '');
+  const dMin = toMin(s.leg1.depart), aMin = toMin(s.leg2.arrive);
   return `
-    <tr data-depart="${s.leg1.depart}" data-arrive="${s.leg2.arrive}" data-hub="${hub}"
+    <tr data-depart="${s.leg1.depart}" data-depart-min="${dMin}"
+        data-arrive="${s.leg2.arrive}" data-arrive-min="${aMin}"
+        data-hub="${hub}"
         data-type="${tKey}" data-train="${s.leg1.train_code[0]}${s.leg2.train_code[0]}"
         data-cost="${c1 + c2}" data-gap="${g}" data-total="${td}"
         data-train1="${s.leg1.train_code}" data-train2="${s.leg2.train_code}">
@@ -185,7 +190,8 @@ function sort(key) {
   const tbody = document.getElementById('tbody');
   const rows = [...tbody.querySelectorAll('tr')];
   rows.sort((a, b) => {
-    const va = a.dataset[key] || '', vb = b.dataset[key] || '';
+    const va = a.dataset[key + '-min'] || a.dataset[key] || '';
+    const vb = b.dataset[key + '-min'] || b.dataset[key] || '';
     const na = parseFloat(va), nb = parseFloat(vb);
     return (isNaN(na) ? va.localeCompare(vb, 'zh') : na - nb) * sortDir;
   });
@@ -208,6 +214,9 @@ async function loadData(src) {
       json = src;
     }
     data = (json.transfers || []).filter(s => s.leg1 && s.leg2);
+    // 路线标题: 用查询的 from/to，不用具体站名
+    const route = (json.from && json.to) ? `${json.from} → ${json.to}` : '12306 中转方案';
+    document.getElementById('route-title').textContent = route;
     hubSet = new Set(data.map(s => s.transfer.replace(/[东南西北]$/, '')));
     const sel = document.getElementById('filter-hub');
     [...hubSet].sort().forEach(h => { const o = document.createElement('option'); o.value = h; o.textContent = h; sel.appendChild(o); });
