@@ -162,14 +162,17 @@ def _process_one_hub(hn, from_variants, to_variants, date, direct_min, min_gap, 
     """单枢纽处理（线程安全）。l2_hubs=同城所有变体, 用于跨站匹配如徐州→徐州东"""
     l2_hubs = l2_hubs or [hn]
     sess = Session()
-    # 第1程: 从出发站变体→枢纽（查到即停）
+    # 第1程: 从出发站变体→枢纽（查到即停，失败换session重试一次）
     l1_trains = []
-    for fv in from_variants:
-        l1 = query_tickets(date, fv, hn, session=sess)
-        if 'error' not in l1:
-            t = l1.get('trains',[])
-            l1_trains.extend(t)
-            if t: break
+    for _retry in range(2):
+        for fv in from_variants:
+            l1 = query_tickets(date, fv, hn, session=sess)
+            if 'error' not in l1:
+                t = l1.get('trains',[])
+                l1_trains.extend(t)
+                if t: break
+        if l1_trains: break
+        sess = Session()  # 限流导致全空，换session重试
     if not l1_trains: return None, False
     if direct_min:
         l1_durs = [_dur_min(t.get('duration','')) for t in l1_trains]
