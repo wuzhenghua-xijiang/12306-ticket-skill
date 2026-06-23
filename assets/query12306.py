@@ -13,9 +13,10 @@ OPENER = urllib.request.build_opener(
 UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 _SESSION_READY = False; API_TYPE = None
 
-def _init_session():
+def _init_session(force=False):
     global _SESSION_READY, API_TYPE
-    if _SESSION_READY: return
+    if _SESSION_READY and not force: return
+    if force: CJ.clear()
     try:
         html = OPENER.open(urllib.request.Request(
             'https://kyfw.12306.cn/otn/leftTicket/init',
@@ -28,10 +29,20 @@ def _init_session():
     _SESSION_READY = True
 
 def _get(url, timeout=15):
+    """GET with auto-retry on session failure"""
     _init_session()
-    req = urllib.request.Request(url, headers={'User-Agent': UA, 'Accept': 'application/json,*/*',
-        'Accept-Language': 'zh-CN,zh;q=0.9', 'Referer': 'https://kyfw.12306.cn/otn/leftTicket/init'})
-    return json.loads(OPENER.open(req, timeout=timeout).read().decode('utf-8-sig'))
+    headers = {'User-Agent': UA, 'Accept': 'application/json,*/*',
+        'Accept-Language': 'zh-CN,zh;q=0.9', 'Referer': 'https://kyfw.12306.cn/otn/leftTicket/init'}
+    for attempt in range(3):
+        try:
+            raw = OPENER.open(urllib.request.Request(url, headers=headers), timeout=timeout).read()
+            return json.loads(raw.decode('utf-8-sig'))
+        except (json.JSONDecodeError, ValueError):
+            if attempt < 2:
+                _init_session(force=True)
+                time.sleep(0.5)
+            else:
+                raise
 
 # ─── 站点数据 ──────────────────────────────────────
 STATIONS = {}; STATION_REV = {}; STATION_BY_PINYIN = {}
