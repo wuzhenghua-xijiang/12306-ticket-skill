@@ -8,7 +8,7 @@ def build(date, from_s, to_s, hubs=None, max_gap=1440, out=None):
     q.load_stations()
     hubs_list = hubs.split(',') if hubs else None
     d = q.search_transfers(date, from_s, to_s, min_gap=20, max_gap=max_gap,
-                           max_results=9999, hubs=hubs_list)
+                           max_results=99999, hubs=hubs_list)
     data_json = json.dumps(d, ensure_ascii=False)
 
     viewer_path = os.path.join(os.path.dirname(__file__), 'viewer.html')

@@ -143,8 +143,8 @@ function renderRow(s) {
       <td class="time">${s.leg2.arrive}</td>
       <td>${hub}</td>
       <td><span class="transfer-tag ${typeClass[tKey]}">${tLabel}</span>${tDetail}</td>
-      <td>${badge(s.leg1.train_code)} ${s.leg1.from}→${s.leg1.to}</td>
-      <td>${badge(s.leg2.train_code)} ${s.leg2.from}→${s.leg2.to}</td>
+      <td>${badge(s.leg1.train_code)} <span class="time">${s.leg1.depart}→${s.leg1.arrive}</span> ${s.leg1.from}→${s.leg1.to}</td>
+      <td>${badge(s.leg2.train_code)} <span class="time">${s.leg2.depart}→${s.leg2.arrive}</span> ${s.leg2.from}→${s.leg2.to}</td>
       <td>${Math.floor(g/60)}h${g%60}m</td>
       <td>${Math.floor(td/60)}h${td%60}m</td>
       <td class="price">¥${c1 + c2}</td>
