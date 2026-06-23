@@ -20,8 +20,11 @@ header h1 { font-size: 20px; white-space: nowrap; }
 .filters input, .filters select { padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; background: var(--card); }
 .filters input { width: 120px; }
 table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 8px; overflow: hidden; box-shadow: var(--shadow); }
-th { background: #1a1a2e; color: #fff; padding: 10px 8px; text-align: left; font-size: 12px; cursor: pointer; user-select: none; }
-th:hover { opacity: 0.9; }
+th { background: #1a1a2e; color: #fff; padding: 10px 8px; text-align: left; font-size: 12px; }
+th.sortable { cursor: pointer; user-select: none; position: relative; padding-right: 22px; }
+th.sortable:hover { opacity: 0.85; }
+.sdir { position: absolute; right: 6px; font-size: 10px; opacity: 0.5; }
+.sdir.active { opacity: 1; font-weight: bold; }
 td { padding: 8px; font-size: 13px; border-bottom: 1px solid var(--border); }
 tr:hover { background: #faf8f4; }
 .train { font-weight: 600; color: var(--blue); }
@@ -67,16 +70,16 @@ tr.hidden { display: none; }
 <table>
   <thead>
     <tr>
-      <th onclick="sort('gap')">#</th>
-      <th onclick="sort('depart')">出发</th>
-      <th onclick="sort('arrive')">到达</th>
-      <th onclick="sort('hub')">中转</th>
-      <th onclick="sort('type')">换乘</th>
-      <th onclick="sort('train1')">第1程</th>
-      <th onclick="sort('train2')">第2程</th>
-      <th onclick="sort('wait')">等待</th>
-      <th onclick="sort('total')">全程</th>
-      <th onclick="sort('cost')">费用</th>
+      <th>#</th>
+      <th onclick="sort('depart')" class="sortable">出发 <span class="sdir" id="sdir-depart"></span></th>
+      <th onclick="sort('arrive')" class="sortable">到达 <span class="sdir" id="sdir-arrive"></span></th>
+      <th onclick="sort('hub')" class="sortable">中转 <span class="sdir" id="sdir-hub"></span></th>
+      <th onclick="sort('type')" class="sortable">换乘 <span class="sdir" id="sdir-type"></span></th>
+      <th onclick="sort('train1')" class="sortable">第1程 <span class="sdir" id="sdir-train1"></span></th>
+      <th onclick="sort('train2')" class="sortable">第2程 <span class="sdir" id="sdir-train2"></span></th>
+      <th onclick="sort('gap')" class="sortable">等待△ <span class="sdir" id="sdir-gap"></span></th>
+      <th onclick="sort('total')" class="sortable">全程△ <span class="sdir" id="sdir-total"></span></th>
+      <th onclick="sort('cost')" class="sortable">费用△ <span class="sdir" id="sdir-cost"></span></th>
       <th>席位</th>
     </tr>
   </thead>
@@ -175,12 +178,16 @@ function resetFilters() {
 
 function sort(key) {
   if (sortKey === key) sortDir = -sortDir; else { sortKey = key; sortDir = 1; }
+  // 更新所有排序箭头
+  document.querySelectorAll('.sdir').forEach(el => { el.textContent = ''; el.classList.remove('active'); });
+  const sdir = document.getElementById('sdir-' + key);
+  if (sdir) { sdir.textContent = sortDir === 1 ? '▲' : '▼'; sdir.classList.add('active'); }
   const tbody = document.getElementById('tbody');
   const rows = [...tbody.querySelectorAll('tr')];
   rows.sort((a, b) => {
     const va = a.dataset[key] || '', vb = b.dataset[key] || '';
     const na = parseFloat(va), nb = parseFloat(vb);
-    return (isNaN(na) ? va.localeCompare(vb) : na - nb) * sortDir;
+    return (isNaN(na) ? va.localeCompare(vb, 'zh') : na - nb) * sortDir;
   });
   rows.forEach(r => tbody.appendChild(r));
 }
@@ -188,11 +195,17 @@ function sort(key) {
 async function loadData(src) {
   try {
     let json;
+    if (src === null || src === undefined) {
+      document.getElementById('tbody').innerHTML = '<tr><td colspan="11" class="empty">无数据 — 请拖拽 JSON 文件加载</td></tr>';
+      return;
+    }
     if (typeof src === 'string') {
       const resp = await fetch(src);
       json = await resp.json();
-    } else {
+    } else if (src.text && typeof src.text === 'function') {
       json = JSON.parse(await src.text());
+    } else {
+      json = src;
     }
     data = (json.transfers || []).filter(s => s.leg1 && s.leg2);
     hubSet = new Set(data.map(s => s.transfer.replace(/[东南西北]$/, '')));
@@ -200,6 +213,7 @@ async function loadData(src) {
     [...hubSet].sort().forEach(h => { const o = document.createElement('option'); o.value = h; o.textContent = h; sel.appendChild(o); });
     renderTable();
     applyFilters();
+    sort('total');
   } catch (e) { document.getElementById('tbody').innerHTML = `<tr><td colspan="11" class="empty">加载失败: ${e.message}</td></tr>`; }
 }
 

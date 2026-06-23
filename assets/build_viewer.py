@@ -14,18 +14,11 @@ def build(date, from_s, to_s, hubs=None, max_gap=1440, out=None):
     viewer_path = os.path.join(os.path.dirname(__file__), 'viewer.html')
     html = open(viewer_path).read()
 
+    # 唯一替换：内嵌查询数据，loadData 原生支持 JS 对象
+    n = len(d.get("transfers", []))
     html = html.replace(
         'loadData(src);',
-        f'// embedded {len(d.get("transfers",[]))} results\n    loadData({data_json});')
-    html = html.replace(
-        "const src = params.get('src') || '/tmp/sample_data.json';",
-        "const src = null;")
-    html = html.replace(
-        "const resp = await fetch(src);\n      json = await resp.json();",
-        "json = src;")
-    html = html.replace(
-        '} else {\n      json = JSON.parse(await src.text());\n    }',
-        '} else { json = src; }')
+        f'// 内嵌 {n} 条中转方案\n    loadData({data_json});')
 
     out = out or f'/tmp/12306_{from_s}_{to_s}_{date}.html'
     with open(out, 'w') as f:
