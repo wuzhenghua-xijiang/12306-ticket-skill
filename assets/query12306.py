@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """12306 票据检索 — 直达 + 中转一站式查询 + 表格化输出"""
 import sys, json, re, time, http.cookiejar, urllib.request, urllib.parse, ssl
-from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # ─── 会话管理 ──────────────────────────────────────
