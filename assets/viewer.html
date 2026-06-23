@@ -70,7 +70,6 @@ tr.hidden { display: none; }
 <table>
   <thead>
     <tr>
-      <th>#</th>
       <th onclick="sort('depart')" class="sortable">出发 <span class="sdir" id="sdir-depart"></span></th>
       <th onclick="sort('arrive')" class="sortable">到达 <span class="sdir" id="sdir-arrive"></span></th>
       <th onclick="sort('hub')" class="sortable">中转 <span class="sdir" id="sdir-hub"></span></th>
@@ -117,7 +116,7 @@ function getSeatSummary(t) {
 
 function toMin(t) { const p = (t || '').split(':'); return parseInt(p[0]) * 60 + parseInt(p[1] || '0'); }
 
-function renderRow(s, i) {
+function renderRow(s) {
   const [tLabel, tKey, tDetail] = transferInfo(s);
   const td = s.total_duration || 0, g = s.gap_min || 0;
   const p1 = s.leg1.prices || {}, p2 = s.leg2.prices || {};
@@ -132,7 +131,6 @@ function renderRow(s, i) {
         data-type="${tKey}" data-train="${s.leg1.train_code[0]}${s.leg2.train_code[0]}"
         data-cost="${c1 + c2}" data-gap="${g}" data-total="${td}"
         data-train1="${s.leg1.train_code}" data-train2="${s.leg2.train_code}">
-      <td>${i}</td>
       <td class="time">${s.leg1.depart}</td>
       <td class="time">${s.leg2.arrive}</td>
       <td>${hub}</td>
@@ -149,7 +147,7 @@ function renderRow(s, i) {
 function renderTable() {
   document.getElementById('stat-total').textContent = `共 ${data.length} 方案`;
   document.getElementById('stat-hubs').textContent = `${hubSet.size} 个中转站`;
-  document.getElementById('tbody').innerHTML = data.map((s, i) => renderRow(s, i + 1)).join('');
+  document.getElementById('tbody').innerHTML = data.map(renderRow).join('');
 }
 
 function applyFilters() {
@@ -202,7 +200,7 @@ async function loadData(src) {
   try {
     let json;
     if (src === null || src === undefined) {
-      document.getElementById('tbody').innerHTML = '<tr><td colspan="11" class="empty">无数据 — 请拖拽 JSON 文件加载</td></tr>';
+      document.getElementById('tbody').innerHTML = '<tr><td colspan="10" class="empty">无数据 — 请拖拽 JSON 文件加载</td></tr>';
       return;
     }
     if (typeof src === 'string') {
@@ -223,7 +221,7 @@ async function loadData(src) {
     renderTable();
     applyFilters();
     sort('total');
-  } catch (e) { document.getElementById('tbody').innerHTML = `<tr><td colspan="11" class="empty">加载失败: ${e.message}</td></tr>`; }
+  } catch (e) { document.getElementById('tbody').innerHTML = `<tr><td colspan="10" class="empty">加载失败: ${e.message}</td></tr>`; }
 }
 
 // 拖拽加载
