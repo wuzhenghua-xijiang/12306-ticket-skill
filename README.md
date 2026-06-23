@@ -76,6 +76,16 @@ python3 assets/query12306.py all -d 2026-07-01 -f 杭州 -t 昆明 --hubs 长沙
 - **三层容错**：`_get` 3次重试 → `query_tickets` 2次兜底 → CLI入口强制刷session
 - **全量收集再排序**：所有hub查完后统一按总耗时排序取top N
 
+## 可选：本地网页展示
+
+```bash
+# 生成交互式HTML报告，内嵌数据，双击浏览器打开
+python3 assets/build_viewer.py -d YYYY-MM-DD -f 出发站 -t 到达站
+python3 assets/build_viewer.py -d YYYY-MM-DD -f 出发站 -t 到达站 --hubs 徐州,商丘 -o ~/Desktop/result.html
+```
+
+功能：表头排序（全程/等待/费用/出发时间 ▲▼）、多维过滤（出发/到达时间、中转站、换乘类型、车种、费用、车次1/2席位）、拖拽JSON加载。默认不生成，按需调用。
+
 ## 注意事项
 
 1. 仅查询未来15天内车票
