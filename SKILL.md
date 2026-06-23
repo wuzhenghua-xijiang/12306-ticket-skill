@@ -85,6 +85,20 @@ python3 {SKILL_DIR}/assets/query12306.py stations -f 关键词
 4. 站名支持中文/拼音模糊匹配
 5. 中转方案建议用`--hubs`指定关键枢纽聚焦
 
+## 本地网页展示
+
+生成可直接浏览器打开的交互式HTML报告：
+
+```bash
+python3 {SKILL_DIR}/assets/build_viewer.py -d YYYY-MM-DD -f 出发站 -t 到达站
+# 指定中转站
+python3 {SKILL_DIR}/assets/build_viewer.py -d YYYY-MM-DD -f 出发站 -t 到达站 --hubs 徐州,商丘
+# 输出到指定路径
+python3 {SKILL_DIR}/assets/build_viewer.py -d YYYY-MM-DD -f 出发站 -t 到达站 -o ~/Desktop/result.html
+```
+
+功能：表格排序（点击表头）、过滤（时间/费用/中转站/车种/换乘类型）、拖拽JSON文件加载。
+
 ## 技术架构
 
 - **并发**：`ThreadPoolExecutor` 5路并行，每线程独立`Session`实例
