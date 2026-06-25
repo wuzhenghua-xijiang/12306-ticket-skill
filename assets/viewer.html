@@ -43,6 +43,25 @@ tr:hover { background: #faf8f4; }
 .empty { text-align: center; padding: 40px; color: var(--muted); font-size: 15px; }
 footer { margin-top: 16px; text-align: center; font-size: 12px; color: var(--muted); }
 tr.hidden { display: none; }
+/* Search Bar */
+.search-bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; padding: 12px; background: var(--card); border-radius: 8px; box-shadow: var(--shadow); }
+.search-bar label { font-size: 12px; color: var(--muted); display: flex; flex-direction: column; gap: 2px; }
+.search-bar input { padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; width: 130px; }
+.search-bar input.wide { width: 200px; }
+.search-bar input.small { width: 80px; }
+.btn-search { padding: 8px 20px; background: #1a56db; color: #fff; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.btn-search:hover { background: #1e40af; }
+.btn-search:disabled { opacity: 0.5; cursor: not-allowed; }
+.api-status { font-size: 12px; color: var(--muted); margin-left: 4px; }
+.api-status.error { color: var(--red); }
+.api-status.ok { color: var(--green); }
+/* Direct section */
+.direct-section { margin-bottom: 16px; }
+.direct-section h2 { font-size: 16px; margin-bottom: 8px; color: #1a1a2e; }
+.direct-table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 8px; overflow: hidden; box-shadow: var(--shadow); margin-bottom: 8px; }
+.direct-table th { background: #2563eb; color: #fff; padding: 8px; text-align: left; font-size: 12px; }
+.direct-table td { padding: 6px 8px; font-size: 13px; border-bottom: 1px solid var(--border); }
+
 </style>
 </head>
 <body>
@@ -54,6 +73,14 @@ tr.hidden { display: none; }
     <span id="stat-range">—</span>
   </div>
 </header>
+<div class="search-bar" id="search-bar">
+  <label>出发站<input id="s-from" value="杭州" placeholder="如: 杭州"></label>
+  <label>到达站<input id="s-to" value="兰考" placeholder="如: 兰考"></label>
+  <label>日期<input id="s-date" type="date" style="width:150px"></label>
+  <label>枢纽(可选)<input id="s-hubs" class="wide" placeholder="徐州,商丘,合肥"></label>
+  <button class="btn-search" id="btn-search" onclick="doSearch()">🔍 查询</button>
+  <span class="api-status" id="api-status"></span>
+</div>
 <div class="filters">
   <input id="filter-from" placeholder="出发时间 ≥" type="text" oninput="applyFilters()">
   <input id="filter-to" placeholder="到达时间 ≤" type="text" oninput="applyFilters()">
@@ -75,6 +102,15 @@ tr.hidden { display: none; }
   </select>
   <button onclick="resetFilters()" style="padding:6px 12px;border:1px solid var(--border);border-radius:6px;background:var(--card);cursor:pointer">重置</button>
 </div>
+<div class="direct-section" id="direct-section" style="display:none">
+  <h2>🚄 直达车次 <span id="direct-count"></span></h2>
+  <table class="direct-table">
+    <thead><tr><th>车次</th><th>出发→到达</th><th>时间</th><th>历时</th><th>席位 / 票价</th></tr></thead>
+    <tbody id="direct-tbody"></tbody>
+  </table>
+</div>
+<div id="transfer-section">
+<h3 style="font-size:14px;margin-bottom:8px;color:#1a1a2e">🔄 中转方案 <span id="transfer-count"></span></h3>
 <table>
   <thead>
     <tr>
@@ -93,12 +129,15 @@ tr.hidden { display: none; }
   <tbody id="tbody"></tbody>
 </table>
 <div class="empty" id="empty" style="display:none">无匹配方案</div>
+</div>
 <footer>数据来源: 12306 API · 拖拽 JSON 文件到页面加载 · <a href="https://kyfw.12306.cn" target="_blank">12306官网</a></footer>
 
 <script>
 let data = [];
 let hubSet = new Set();
 let sortKey = 'total', sortDir = 1;
+
+const API_BASE = localStorage.getItem('api_base') || 'https://train-query.illustrious-panda.workers.dev';
 
 const TYPES = { same: '站内', city: '同城', diff: '异站' };
 const typeClass = { same: 'transfer-same', city: 'transfer-city', diff: 'transfer-diff' };
@@ -123,6 +162,59 @@ function getSeatSummary(t) {
 }
 
 function toMin(t) { const p = (t || '').split(':'); return parseInt(p[0]) * 60 + parseInt(p[1] || '0'); }
+
+function renderDirect(direct) {
+  const sec = document.getElementById('direct-section');
+  if (!direct || !direct.trains || !direct.trains.length) { sec.style.display = 'none'; return; }
+  sec.style.display = 'block';
+  document.getElementById('direct-count').textContent = `共 ${direct.trains.length} 趟`;
+  document.getElementById('direct-tbody').innerHTML = direct.trains.map(t => {
+    const seats = Object.entries(t.seats || {}).map(([k, v]) =>
+      `<span class="seat">${k}${v === '有' ? '有' : v + '张'}</span>`).join(' ');
+    const prices = Object.entries(t.prices || {}).slice(0, 3).map(([k, v]) =>
+      `<span class="price">¥${v}</span>`).join(' ');
+    return `<tr>
+      <td>${badge(t.train_code)}</td>
+      <td>${t.from}→${t.to}</td>
+      <td class="time">${t.depart}→${t.arrive}</td>
+      <td>${t.duration}</td>
+      <td>${seats} ${prices}</td></tr>`;
+  }).join('');
+}
+
+async function doSearch() {
+  const from = document.getElementById('s-from').value.trim();
+  const to = document.getElementById('s-to').value.trim();
+  const date = document.getElementById('s-date').value;
+  const hubs = document.getElementById('s-hubs').value.trim();
+  if (!from || !to || !date) { alert('请填写出发站、到达站和日期'); return; }
+  if (!API_BASE) {
+    const u = prompt('请先填入 API Worker 地址:\n(部署 assets/worker.js 到 Cloudflare Workers 后获得)', localStorage.getItem('api_base') || '');
+    if (!u) return;
+    localStorage.setItem('api_base', u);
+    location.reload();
+    return;
+  }
+
+  const btn = document.getElementById('btn-search');
+  const status = document.getElementById('api-status');
+  btn.disabled = true; btn.textContent = '查询中...';
+  status.textContent = ''; status.className = 'api-status';
+
+  try {
+    const params = new URLSearchParams({ from, to, date });
+    if (hubs) params.set('hubs', hubs);
+    const resp = await fetch(`${API_BASE}/api/query?${params}`);
+    const json = await resp.json();
+    if (json.error) throw new Error(json.error);
+    loadData(json);
+    status.textContent = '✓'; status.className = 'api-status ok';
+  } catch (e) {
+    status.textContent = `✗ ${e.message}`; status.className = 'api-status error';
+  } finally {
+    btn.disabled = false; btn.textContent = '🔍 查询';
+  }
+}
 
 function renderRow(s) {
   const [tLabel, tKey, tDetail] = transferInfo(s);
@@ -223,7 +315,7 @@ async function loadData(src) {
   try {
     let json;
     if (src === null || src === undefined) {
-      document.getElementById('tbody').innerHTML = '<tr><td colspan="10" class="empty">无数据 — 请拖拽 JSON 文件加载</td></tr>';
+      showEmpty('无数据 — 请拖拽 JSON 文件或点击查询');
       return;
     }
     if (typeof src === 'string') {
@@ -234,23 +326,39 @@ async function loadData(src) {
     } else {
       json = src;
     }
-    data = (json.transfers || []).filter(s => s.leg1 && s.leg2);
-    // 路线标题: 用查询的 from/to，不用具体站名
+    // Support both old (transfers only) and new (direct + transfers) format
+    const transfers = json.transfers?.transfers || json.transfers || [];
+    data = (Array.isArray(transfers) ? transfers : []).filter(s => s.leg1 && s.leg2);
     const route = (json.from && json.to) ? `${json.from} → ${json.to}` : '12306 中转方案';
     document.getElementById('route-title').textContent = route;
+    // Direct
+    renderDirect(json.direct);
+    // Transfer stats
+    document.getElementById('transfer-count').textContent = data.length ? `共 ${data.length} 方案` : '';
+    document.getElementById('stat-total').textContent = data.length ? `共 ${data.length} 方案` : '';
     hubSet = new Set(data.map(s => s.transfer.replace(/[东南西北]$/, '')));
-    const fromStnSet = new Set(data.map(s => s.leg1.from));
-    const toStnSet = new Set(data.map(s => s.leg2.to));
+    document.getElementById('stat-hubs').textContent = `${hubSet.size} 个中转站`;
+    // Populate filter dropdowns
     const selHub = document.getElementById('filter-hub');
     const selFromStn = document.getElementById('filter-from-stn');
     const selToStn = document.getElementById('filter-to-stn');
+    [selHub, selFromStn, selToStn].forEach(s => { while (s.options.length > 1) s.remove(1); });
+    const fromStnSet = new Set(data.map(s => s.leg1.from));
+    const toStnSet = new Set(data.map(s => s.leg2.to));
     [...hubSet].sort().forEach(h => { const o = document.createElement('option'); o.value = h; o.textContent = h; selHub.appendChild(o); });
     [...fromStnSet].sort().forEach(s => { const o = document.createElement('option'); o.value = s; o.textContent = s; selFromStn.appendChild(o); });
     [...toStnSet].sort().forEach(s => { const o = document.createElement('option'); o.value = s; o.textContent = s; selToStn.appendChild(o); });
     renderTable();
     applyFilters();
     sort('total');
-  } catch (e) { document.getElementById('tbody').innerHTML = `<tr><td colspan="10" class="empty">加载失败: ${e.message}</td></tr>`; }
+  } catch (e) { showEmpty(`加载失败: ${e.message}`); }
+}
+
+function showEmpty(msg) {
+  document.getElementById('direct-section').style.display = 'none';
+  document.getElementById('tbody').innerHTML = `<tr><td colspan="10" class="empty">${msg}</td></tr>`;
+  document.getElementById('stat-total').textContent = '—';
+  document.getElementById('transfer-count').textContent = '';
 }
 
 // 拖拽加载
@@ -264,6 +372,9 @@ document.addEventListener('drop', e => {
 // 默认加载样本数据
 const params = new URLSearchParams(location.search);
 const src = params.get('src') || '/tmp/sample_data.json';
+// Set default date to today
+const today = new Date().toISOString().split('T')[0];
+document.getElementById('s-date').value = today;
 loadData(src);
 </script>
 </body>
