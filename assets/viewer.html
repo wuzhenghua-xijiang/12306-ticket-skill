@@ -81,6 +81,15 @@ tr.hidden { display: none; }
   <button class="btn-search" id="btn-search" onclick="doSearch()">🔍 查询</button>
   <span class="api-status" id="api-status"></span>
 </div>
+<div class="direct-section" id="direct-section" style="display:none">
+  <h2>🚄 直达车次 <span id="direct-count"></span></h2>
+  <table class="direct-table">
+    <thead><tr><th>车次</th><th>出发→到达</th><th>时间</th><th>历时</th><th>席位 / 票价</th></tr></thead>
+    <tbody id="direct-tbody"></tbody>
+  </table>
+</div>
+<div id="transfer-section">
+<h3 style="font-size:14px;margin-bottom:8px;color:#1a1a2e">🔄 中转方案 <span id="transfer-count"></span></h3>
 <div class="filters">
   <input id="filter-from" placeholder="出发时间 ≥" type="text" oninput="applyFilters()">
   <input id="filter-to" placeholder="到达时间 ≤" type="text" oninput="applyFilters()">
@@ -102,15 +111,6 @@ tr.hidden { display: none; }
   </select>
   <button onclick="resetFilters()" style="padding:6px 12px;border:1px solid var(--border);border-radius:6px;background:var(--card);cursor:pointer">重置</button>
 </div>
-<div class="direct-section" id="direct-section" style="display:none">
-  <h2>🚄 直达车次 <span id="direct-count"></span></h2>
-  <table class="direct-table">
-    <thead><tr><th>车次</th><th>出发→到达</th><th>时间</th><th>历时</th><th>席位 / 票价</th></tr></thead>
-    <tbody id="direct-tbody"></tbody>
-  </table>
-</div>
-<div id="transfer-section">
-<h3 style="font-size:14px;margin-bottom:8px;color:#1a1a2e">🔄 中转方案 <span id="transfer-count"></span></h3>
 <table>
   <thead>
     <tr>
