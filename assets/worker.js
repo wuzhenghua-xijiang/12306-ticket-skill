@@ -18,7 +18,7 @@ const SEAT_TYPES = [
   ["软座",24,"2"],["硬座",29,"1"],["无座",26,"W"],
 ];
 
-const HUB_LIST = ["徐州","商丘","合肥","南京","郑州","武汉","长沙","北京","上海","广州","西安","济南","南昌","石家庄","天津"];
+const HUB_LIST = ["徐州","商丘","合肥","南京","郑州","上海","北京","武汉"];
 
 // ─── Session ────────────────────────
 async function initSession(force) {
@@ -140,11 +140,11 @@ async function searchTransfers(date, from, to, hubs) {
     }
     if (!l1Trains.length) continue;
 
-    // l2
+    // l2 (break on first success to reduce subrequests)
     let l2Trains = [];
     for (const tv of toVars) {
       const r = await queryTickets(date, hub, tv);
-      if (r) l2Trains.push(...r.trains);
+      if (r && r.trains.length) { l2Trains = r.trains; break; }
     }
     if (!l2Trains.length) continue;
 
